@@ -660,7 +660,6 @@
             <span class="heart" aria-hidden="true"></span>
             <span class="heart" aria-hidden="true"></span>
           </div>
-          <div class="boost-line"><span id="boostLabel">БУСТ 0.0с</span><span class="boost-track"><span id="boostFill"></span></span></div>
         </div>
       </div>
 
@@ -819,8 +818,6 @@
         bars: 0,
         combo: 0,
         comboTimer: 0,
-        boost: 0,
-        boostPulse: 0,
         lives: MAX_LIVES,
         elapsed: 0,
         shake: 0,
@@ -1000,8 +997,6 @@
         state.bars = 0;
         state.combo = 0;
         state.comboTimer = 0;
-        state.boost = 0;
-        state.boostPulse = 0;
         state.lives = MAX_LIVES;
         state.elapsed = 0;
         state.shake = 0;
@@ -1141,8 +1136,6 @@
         state.bars += 1;
         state.combo = state.comboTimer > 0 ? state.combo + 1 : 1;
         state.comboTimer = 2.8;
-        state.boost = Math.min(4.8, state.boost + 1.05);
-        state.boostPulse = .35;
         state.shake = Math.max(state.shake, 1.2);
         state.flash = Math.max(state.flash, .06);
         spawnParticles(bar.x + 10, bar.y + 10, 10, bar.color, 150, .55);
@@ -1154,7 +1147,6 @@
         if (player.invulnerable > 0 || state.mode !== "playing") return;
         state.lives -= 1;
         player.invulnerable = 1.25;
-        state.boost = Math.max(0, state.boost - .65);
         state.combo = 0;
         state.comboTimer = 0;
         state.shake = 7;
@@ -1214,22 +1206,21 @@
         const threat = MAX_LIVES - state.lives;
         state.demonTargetX = 38 + threat * 27 + Math.sin(state.elapsed * 2.2) * 5;
         state.demonX += (state.demonTargetX - state.demonX) * Math.min(1, dt * 3.6);
-        state.demonRun += dt * (state.boost > 0 ? 15 : 12);
-        state.boostPulse = Math.max(0, state.boostPulse - dt);
+        state.demonRun += dt * 12;
         state.shake = Math.max(0, state.shake - dt * 14);
         state.flash = Math.max(0, state.flash - dt);
         player.invulnerable = Math.max(0, player.invulnerable - dt);
         player.landFlash = Math.max(0, player.landFlash - dt);
 
-        if (state.boost > 0) state.boost = Math.max(0, state.boost - dt);
         if (state.comboTimer > 0) {
           state.comboTimer = Math.max(0, state.comboTimer - dt);
           if (state.comboTimer === 0) state.combo = 0;
         }
 
-        const baseSpeed = Math.min(570, 300 + state.distance * .021);
-        const boostFactor = 1 + Math.min(.46, state.boost * .12);
-        const speed = baseSpeed * boostFactor;
+        // линейное ускорение по дистанции: 300 → 620 px/с
+        const minSpeed = 300;
+        const maxSpeed = 620;
+        const speed = Math.min(maxSpeed, minSpeed + state.distance * .028);
         state.worldOffset += speed * dt;
         state.distance += speed * dt;
         state.score = getScore();
@@ -1248,8 +1239,8 @@
         } else {
           player.grounded = false;
         }
-        player.runFrame += dt * (state.boost > 0 ? 19 : 15);
-
+        player.runFrame += dt * 15;
+        
         for (let i = obstacles.length - 1; i >= 0; i -= 1) {
           const o = obstacles[i];
           o.x -= speed * dt;
@@ -1332,8 +1323,8 @@
           ui.hearts.setAttribute("aria-label", "Осталось " + state.lives + " " + pluralizeLife(state.lives));
           state.lastLivesRender = state.lives;
         }
-        ui.boostLabel.textContent = state.boost > 0 ? "БУСТ " + state.boost.toFixed(1) + "с" : "БУСТ 0.0с";
-        ui.boostFill.style.width = Math.min(100, (state.boost / 4.8) * 100) + "%";
+        ui.boostLabel.textContent = "ТЕМП 100%";
+        ui.boostFill.style.width = "0%";
       }
 
       function pluralizeLife(value) {
@@ -1760,22 +1751,7 @@
 
         ctx.restore();
 
-        // буст-полосы за спиной
-        if (state.boost > 0) {
-          ctx.save();
-          ctx.globalAlpha = .28 + .12 * Math.sin(state.elapsed * 15);
-          ctx.strokeStyle = "#75e6ed";
-          ctx.lineWidth = 2;
-          ctx.lineCap = "round";
-          for (let i = 0; i < 4; i += 1) {
-            const streakX = x - 27 - i * 15;
-            ctx.beginPath();
-            ctx.moveTo(streakX, y + 18 + (i % 2) * 9);
-            ctx.lineTo(streakX + 19 - i * 2, y + 18 + (i % 2) * 9);
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
+        
       }
 
       // ---------- Демогоргон (без подписи, с лепестковой пастью) ----------
@@ -1973,13 +1949,7 @@
       }
 
       function drawScreenEffects() {
-        if (state.boostPulse > 0) {
-          ctx.save();
-          ctx.globalAlpha = state.boostPulse * .55;
-          ctx.fillStyle = "#75e6ed";
-          ctx.fillRect(0, 0, W, H);
-          ctx.restore();
-        }
+
         if (state.flash > 0) {
           ctx.save();
           ctx.globalAlpha = Math.min(.42, state.flash * 1.7);
